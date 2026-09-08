@@ -51,11 +51,14 @@ class VlcjPlaybackEngine : PlaybackEngine {
     init {
         val discovered = NativeDiscovery().discover()
         var created: Result<MediaPlayerFactory> = Result.failure(IllegalStateException("not attempted"))
-        repeat(FACTORY_RETRIES) { attempt ->
-            created = runCatching { MediaPlayerFactory(*FACTORY_ARGS) }
-            if (created.isSuccess) return@repeat
-            if (attempt < FACTORY_RETRIES - 1) {
-                Thread.sleep(FACTORY_RETRY_DELAY_MS)
+        val argSets = listOf(FACTORY_ARGS, FACTORY_ARGS_MINIMAL)
+        outer@ for (args in argSets) {
+            repeat(FACTORY_RETRIES) { attempt ->
+                created = runCatching { MediaPlayerFactory(*args) }
+                if (created.isSuccess) break@outer
+                if (attempt < FACTORY_RETRIES - 1) {
+                    Thread.sleep(FACTORY_RETRY_DELAY_MS)
+                }
             }
         }
         factory = created.getOrNull()
@@ -64,11 +67,7 @@ class VlcjPlaybackEngine : PlaybackEngine {
             factory == null -> {
                 val cause = created.exceptionOrNull()
                 val detail = cause?.message ?: cause?.cause?.message
-                when {
-                    detail != null -> "LibVLC failed to start: $detail"
-                    !discovered -> "LibVLC not found. Install VLC (libvlc) and restart."
-                    else -> "Could not start LibVLC."
-                }
+                describeNativeFailure(detail, discovered)
             }
             player == null -> "LibVLC opened but could not create a player."
             else -> null
@@ -356,7 +355,22 @@ class VlcjPlaybackEngine : PlaybackEngine {
             "--http-user-agent=YuriPlayer/1.0",
             "--aout=any"
         )
+        /** Last-ditch: skip options older VLC builds may reject. */
+        private val FACTORY_ARGS_MINIMAL = arrayOf("--no-video")
         private const val FACTORY_RETRIES = 3
         private const val FACTORY_RETRY_DELAY_MS = 300L
+
+        internal fun describeNativeFailure(detail: String?, discovered: Boolean): String {
+            val nixHint = if (LibVlcBootstrap.isNixOs()) {
+                " On NixOS add `vlc` to environment.systemPackages (or home.packages) and restart, or set YURI_LIBVLC to the directory that contains libvlc.so (usually /nix/store/<hash>-vlc-*/lib)."
+            } else {
+                " Install VLC / libvlc, or set YURI_LIBVLC to the folder that contains libvlc."
+            }
+            return when {
+                detail != null -> "LibVLC failed to start: $detail.$nixHint"
+                !discovered -> "LibVLC not found.$nixHint"
+                else -> "Could not start LibVLC.$nixHint"
+            }
+        }
     }
 }

@@ -110,7 +110,11 @@ private fun PlaybackPane() {
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
         )
         Spacer(Modifier.height(12.dp))
-        Text("LibVLC — bundled on Windows/macOS, system VLC on Linux packages.", color = MaterialTheme.colorScheme.onSurface)
+        Text(
+            "LibVLC — bundled on Windows/macOS, system VLC on Linux. " +
+                "NixOS: add vlc to systemPackages (or set YURI_LIBVLC to the lib dir).",
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 

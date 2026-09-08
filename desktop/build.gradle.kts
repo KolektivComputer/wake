@@ -39,6 +39,7 @@ dependencies {
     implementation(libs.ktor.client.cio)
     implementation(libs.jaudiotagger)
     implementation(project(":mediasession"))
+    testImplementation(kotlin("test"))
 }
 
 val libvlcRoot = layout.buildDirectory.dir("libvlc")
